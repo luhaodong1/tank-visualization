@@ -16,6 +16,7 @@ public class BulletService {
     public List<Bullet> getAllBullets() {
         return bulletRepository.findAll();
     }
+
     public void updateAllBullet(List<Bullet> bullets) {
         bulletRepository.saveAll(bullets);
     }

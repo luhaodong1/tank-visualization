@@ -9,7 +9,7 @@
     <div v-if="showCreateTankDialog" class="dialog">
       <label for="tankName">请给坦克命名:</label>
       <input type="text" v-model="newTankName" id="tankName">
-      
+
       <div class="tank-options">
         <label>选择坦克:</label>
         <div class="tank-option" v-for="tank in tankStyles" :key="tank" @click="selectTankStyle(tank)">
@@ -33,7 +33,8 @@
       <button class="start-button" @click="toggleGame">开始</button>
     </div>
 
-    <canvas ref="tankCanvas" @mousedown="startDrag" @mousemove="drag" @mouseup="endDrag" @mouseleave="endDrag" @click="handleCanvasClick"></canvas>
+    <canvas ref="tankCanvas" @mousedown="startDrag" @mousemove="drag" @mouseup="endDrag" @mouseleave="endDrag"
+      @click="handleCanvasClick"></canvas>
   </div>
 </template>
 
@@ -280,8 +281,8 @@ export default {
       this.tanks.forEach(tank => {
         const image = new Image();
         image.src = `/tank_assets/${tank.style}`;
-        if (tank.canDrag==true && x >= tank.x - image.width / 2 && x <= tank.x + image.width / 2 &&
-            y >= tank.y - image.height / 2 && y <= tank.y + image.height / 2) {
+        if (tank.canDrag == true && x >= tank.x - image.width / 2 && x <= tank.x + image.width / 2 &&
+          y >= tank.y - image.height / 2 && y <= tank.y + image.height / 2) {
           this.selectedTank = tank;
           this.isDragging = true;
           this.dragOffsetX = x - tank.x;
@@ -290,7 +291,7 @@ export default {
       });
     },
     drag(event) {
-      if (this.isDragging && this.selectedTank && this.selectedTank.canDrag==true) {
+      if (this.isDragging && this.selectedTank && this.selectedTank.canDrag == true) {
         const rect = this.canvas.getBoundingClientRect();
         const x = event.clientX - rect.left;
         const y = event.clientY - rect.top;
@@ -320,7 +321,7 @@ export default {
         const image = new Image();
         image.src = `/tank_assets/${tank.style}`;
         if (x >= tank.x - image.width / 2 && x <= tank.x + image.width / 2 &&
-            y >= tank.y - image.height / 2 && y <= tank.y + image.height / 2) {
+          y >= tank.y - image.height / 2 && y <= tank.y + image.height / 2) {
           this.selectedTank = tank;
           clickedOnTank = true;
         }
@@ -402,7 +403,7 @@ export default {
     shoot() {
       const currentTime = Date.now();
       if (!this.selectedTank || (currentTime - this.lastShootTime) < this.shootInterval) return;
-      
+
       const bullet = {
         x: this.selectedTank.x,
         y: this.selectedTank.y,
@@ -426,12 +427,12 @@ export default {
           bullet.x -= image.width / 2 + 3;
           break;
       }
-      
+
       webSocketService.sendMessage({ type: 'createBullet', bullet }, (responseBullet) => {
         console.log(responseBullet);
         bullet.id = responseBullet.id;
         this.bullets.push(bullet);
-        this.drawTanks(); 
+        this.drawTanks();
       });
 
       this.lastShootTime = currentTime;
@@ -440,7 +441,7 @@ export default {
       if (this.bulletInterval) {
         clearInterval(this.bulletInterval);
       }
-      
+
       this.bulletInterval = setInterval(() => {
         this.bullets.forEach(bullet => {
           switch (bullet.direction) {
@@ -628,11 +629,13 @@ export default {
   width: 800px;
   height: 600px;
   border: 1px solid #000;
-  margin: 0 auto; /* 使画布居中 */
+  margin: 0 auto;
+  /* 使画布居中 */
 }
 
 .control-container {
-  text-align: center; /* 使按钮居中 */
+  text-align: center;
+  /* 使按钮居中 */
   margin-bottom: 10px;
 }
 
@@ -666,7 +669,7 @@ export default {
 
 .tank-options {
   display: flex;
-  
+
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 10px;
