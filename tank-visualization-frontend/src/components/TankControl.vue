@@ -47,6 +47,8 @@ export default {
       tanks: [], // 保存所有坦克的数组
       bullets: [], // 保存所有炮弹的数组
       explosions: [], // 保存所有爆炸的数组
+      obstacles: [], // 保存所有障碍物的数组
+      obstacleStyles: ["treeBrown_large.png", "treeBrown_small.png", "treeGreen_large.png", "treeGreen_small.png"],
       selectedTank: null, // 当前选中的坦克
       canvas: null, // 画布元素
       context: null, // 画布上下文
@@ -66,8 +68,8 @@ export default {
       gameRunning: false,
       keysPressed: {}, // 记录当前按下的按键
       lastShootTime: 0, // 记录上一次射击的时间
-      shootInterval: 200, // 控制射击间隔时间（毫秒）
-      moveStep: 2,
+      shootInterval: 200, // 控制射击间隔时间（毫秒） 
+      moveStep: 2, // 坦克移动步长
     };
   },
   mounted() {
@@ -88,6 +90,8 @@ export default {
       this.bullets = bullets; // 获取所有子弹数据
       this.drawTanks();
     });
+    // 随机放置障碍物
+    this.placeObstacles();
     this.pauseGame();
     this.startKeyPressHandling(); // 开始按键处理循环
     // this.startRandomMovement();
@@ -104,6 +108,19 @@ export default {
     webSocketService.disconnect();
   },
   methods: {
+    placeObstacles() {
+      const obstacleCount = 4; // 障碍物数量
+      for (let i = 0; i < obstacleCount; i++) {
+        const style = this.obstacleStyles[Math.floor(Math.random() * this.obstacleStyles.length)];
+        const image = new Image();
+        image.src = `/tank_assets/${style}`;
+        image.onload = () => {
+          const x = Math.random() * (this.canvas.width - image.width) + image.width / 2;
+          const y = Math.random() * (this.canvas.height - image.height) + image.height / 2;
+          this.obstacles.push({ style, x, y, width: image.width, height: image.height });
+        };
+      }
+    },
     openCreateTankDialog() {
       this.showCreateTankDialog = true;
     },
@@ -176,58 +193,74 @@ export default {
       }
     },
     drawTanks() {
-      this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
-      
-      // 绘制坦克
-      this.tanks.forEach(tank => {
-        if (tank.isBlinking == true) {
-          if (Math.floor(Date.now() / this.blinkSpeed) % 2 === 0) {
-            return; // 闪烁效果
+      const backgroundImage = new Image();
+      backgroundImage.src = '/tank_assets/background.png';
+
+      backgroundImage.onload = () => {
+        // 先绘制背景图片
+        this.context.drawImage(backgroundImage, 0, 0, this.canvas.width, this.canvas.height);
+
+        // 绘制障碍物
+        this.obstacles.forEach(obstacle => {
+          this.context.save();
+          const obstacleImage = new Image();
+          obstacleImage.src = `/tank_assets/${obstacle.style}`;
+          this.context.drawImage(obstacleImage, obstacle.x - obstacle.width / 2, obstacle.y - obstacle.height / 2);
+          this.context.restore();
+        });
+
+        // 绘制坦克
+        this.tanks.forEach(tank => {
+          if (tank.isBlinking == true) {
+            if (Math.floor(Date.now() / this.blinkSpeed) % 2 === 0) {
+              return; // 闪烁效果
+            }
           }
-        }
 
-        this.context.save();
-        this.context.translate(tank.x, tank.y);
-        this.context.rotate(this.getRotationAngle(tank.direction));
-        const image = new Image();
-        image.src = `/tank_assets/${tank.style}`;
-        this.context.drawImage(image, -image.width / 2, -image.height / 2);
-        
-        if (this.selectedTank === tank) {
-          this.context.strokeStyle = 'red';
-          this.context.lineWidth = 2;
-          this.context.strokeRect(-image.width / 2, -image.height / 2, image.width, image.height);
-        }
-
-        this.context.restore();
-
-        if (tank.canDrag == true) {
           this.context.save();
           this.context.translate(tank.x, tank.y);
-          this.context.strokeStyle = 'blue';
-          this.context.strokeRect(-image.width / 2, -image.height / 2, image.width, image.height);
+          this.context.rotate(this.getRotationAngle(tank.direction));
+          const image = new Image();
+          image.src = `/tank_assets/${tank.style}`;
+          this.context.drawImage(image, -image.width / 2, -image.height / 2);
+
+          if (this.selectedTank === tank) {
+            this.context.strokeStyle = 'red';
+            this.context.lineWidth = 2;
+            this.context.strokeRect(-image.width / 2, -image.height / 2, image.width, image.height);
+          }
+
           this.context.restore();
-        }
-      });
 
-      // 绘制炮弹
-      this.bullets.forEach(bullet => {
-        this.context.save();
-        this.context.translate(bullet.x, bullet.y);
-        this.context.rotate(this.getRotationAngle(bullet.direction) + Math.PI); // 旋转180度
-        const bulletImage = new Image();
-        bulletImage.src = `/tank_assets/${bullet.style}`;
-        this.context.drawImage(bulletImage, -bulletImage.width / 2, -bulletImage.height / 2);
-        this.context.restore();
-      });
+          if (tank.canDrag == true) {
+            this.context.save();
+            this.context.translate(tank.x, tank.y);
+            this.context.strokeStyle = 'blue';
+            this.context.strokeRect(-image.width / 2, -image.height / 2, image.width, image.height);
+            this.context.restore();
+          }
+        });
 
-      // 绘制爆炸效果
-      this.explosions.forEach(explosion => {
-        const explosionImage = new Image();
-        explosionImage.src = `/tank_assets/${explosion.frame}`;
-        this.context.drawImage(explosionImage, explosion.x - explosionImage.width / 2, explosion.y - explosionImage.height / 2);
-      });
+        // 绘制炮弹
+        this.bullets.forEach(bullet => {
+          this.context.save();
+          this.context.translate(bullet.x, bullet.y);
+          this.context.rotate(this.getRotationAngle(bullet.direction) + Math.PI); // 旋转180度
+          const bulletImage = new Image();
+          bulletImage.src = `/tank_assets/${bullet.style}`;
+          this.context.drawImage(bulletImage, -bulletImage.width / 2, -bulletImage.height / 2);
+          this.context.restore();
+        });
+
+        // 绘制爆炸效果
+        this.explosions.forEach(explosion => {
+          const explosionImage = new Image();
+          explosionImage.src = `/tank_assets/${explosion.frame}`;
+          this.context.drawImage(explosionImage, explosion.x - explosionImage.width / 2, explosion.y - explosionImage.height / 2);
+        });
+      };
     },
+
     getRotationAngle(direction) {
       switch (direction) {
         case 'up':
@@ -335,23 +368,35 @@ export default {
     moveTank(tank, direction) {
       const image = new Image();
       image.src = `/tank_assets/${tank.style}`;
-      switch (direction) {
-        case 'up':
-          tank.direction = 'up';
-          tank.y = Math.max(image.height / 2, tank.y - this.moveStep);
+      const previousPosition = { x: tank.x, y: tank.y };
+      const stepSize = this.moveStep > 2 ? 2 : this.moveStep;
+
+      for (let step = 0; step < this.moveStep; step += stepSize) {
+        switch (direction) {
+          case 'up':
+            tank.direction = 'up';
+            tank.y = Math.max(image.height / 2, tank.y - stepSize);
+            break;
+          case 'right':
+            tank.direction = 'right';
+            tank.x = Math.min(this.canvas.width - image.width / 2, tank.x + stepSize);
+            break;
+          case 'down':
+            tank.direction = 'down';
+            tank.y = Math.min(this.canvas.height - image.height / 2, tank.y + stepSize);
+            break;
+          case 'left':
+            tank.direction = 'left';
+            tank.x = Math.max(image.width / 2, tank.x - stepSize);
+            break;
+        }
+
+        if (this.checkCollisions(tank)) {
+          // 如果检测到碰撞，恢复之前的位置
+          tank.x = previousPosition.x;
+          tank.y = previousPosition.y;
           break;
-        case 'right':
-          tank.direction = 'right';
-          tank.x = Math.min(this.canvas.width - image.width / 2, tank.x + this.moveStep);
-          break;
-        case 'down':
-          tank.direction = 'down';
-          tank.y = Math.min(this.canvas.height - image.height / 2, tank.y + this.moveStep);
-          break;
-        case 'left':
-          tank.direction = 'left';
-          tank.x = Math.max(image.width / 2, tank.x - this.moveStep);
-          break;
+        }
       }
     },
     shoot() {
@@ -369,16 +414,16 @@ export default {
       image.src = `/tank_assets/${this.selectedTank.style}`;
       switch (bullet.direction) {
         case 'up':
-          bullet.y -= image.height / 2 + 10;
+          bullet.y -= image.height / 2 + 3;
           break;
         case 'right':
-          bullet.x += image.width / 2 + 10;
+          bullet.x += image.width / 2 + 3;
           break;
         case 'down':
-          bullet.y += image.height / 2 + 10;
+          bullet.y += image.height / 2 + 3;
           break;
         case 'left':
-          bullet.x -= image.width / 2 + 10;
+          bullet.x -= image.width / 2 + 3;
           break;
       }
       
@@ -418,6 +463,36 @@ export default {
         this.drawTanks();
       }, 100);
     },
+    checkCollisions(tank) {
+      const image = new Image();
+      image.src = `/tank_assets/${tank.style}`;
+
+      this.tanks.forEach(otherTank => {
+        if (otherTank !== tank) {
+          const dx = otherTank.x - tank.x;
+          const dy = otherTank.y - tank.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance < image.width) {
+            this.createExplosion(tank.x, tank.y);
+            this.createExplosion(otherTank.x, otherTank.y);
+            this.deleteTank(tank);
+            this.deleteTank(otherTank);
+          }
+        }
+      });
+
+      // 检查坦克与障碍物的碰撞
+      let collision = false;
+      this.obstacles.forEach(obstacle => {
+        const dx = Math.abs(tank.x - obstacle.x);
+        const dy = Math.abs(tank.y - obstacle.y);
+        if (dx < (image.width / 2 + obstacle.width / 2) && dy < (image.height / 2 + obstacle.height / 2)) {
+          collision = true;
+        }
+      });
+
+      return collision;
+    },
     checkBulletCollision(bullet) {
       // 检查炮弹是否碰撞到坦克
       this.tanks.forEach(tank => {
@@ -432,12 +507,23 @@ export default {
           this.deleteBullet(bullet);
         }
       });
-      
+
+      // 检查炮弹是否碰撞到障碍物
+      this.obstacles.forEach(obstacle => {
+        const dx = bullet.x - obstacle.x;
+        const dy = bullet.y - obstacle.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < 25) {
+          this.deleteBullet(bullet);
+        }
+      });
+
       // 检查炮弹是否碰撞到边界
       if (bullet.x < 0 || bullet.x > this.canvas.width || bullet.y < 0 || bullet.y > this.canvas.height) {
         this.deleteBullet(bullet);
       }
     },
+
     createExplosion(x, y) {
       this.explosions.push({ x, y, frame: 'explosion1.png' });
       setTimeout(() => {
@@ -475,48 +561,44 @@ export default {
     randomMoveTanks() {
       this.tanks.forEach(tank => {
         if (this.selectedTank !== tank && tank.hasBeenDragged) {
+          const previousPosition = { x: tank.x, y: tank.y };
+
           if (Math.random() < 0.05) {
             tank.direction = ['up', 'right', 'down', 'left'][Math.floor(Math.random() * 4)];
           }
           const image = new Image();
           image.src = `/tank_assets/${tank.style}`;
-          switch (tank.direction) {
-            case 'up':
-              tank.y = Math.max(image.height / 2, tank.y - 5);
+          const stepSize = 2;
+
+          for (let step = 0; step < 5; step += stepSize) {
+            switch (tank.direction) {
+              case 'up':
+                tank.y = Math.max(image.height / 2, tank.y - stepSize);
+                break;
+              case 'right':
+                tank.x = Math.min(this.canvas.width - image.width / 2, tank.x + stepSize);
+                break;
+              case 'down':
+                tank.y = Math.min(this.canvas.height - image.height / 2, tank.y + stepSize);
+                break;
+              case 'left':
+                tank.x = Math.max(image.width / 2, tank.x - stepSize);
+                break;
+            }
+
+            if (this.checkCollisions(tank)) {
+              // 如果检测到碰撞，恢复之前的位置
+              tank.x = previousPosition.x;
+              tank.y = previousPosition.y;
               break;
-            case 'right':
-              tank.x = Math.min(this.canvas.width - image.width / 2, tank.x + 5);
-              break;
-            case 'down':
-              tank.y = Math.min(this.canvas.height - image.height / 2, tank.y + 5);
-              break;
-            case 'left':
-              tank.x = Math.max(image.width / 2, tank.x - 5);
-              break;
+            }
           }
-          this.checkCollisions(tank);
         }
       });
       this.sendTankUpdate();
       this.drawTanks();
     },
-    checkCollisions(tank) {
-      this.tanks.forEach(otherTank => {
-        if (otherTank !== tank) {
-          const dx = otherTank.x - tank.x;
-          const dy = otherTank.y - tank.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          const image = new Image();
-          image.src = `/tank_assets/${tank.style}`;
-          if (distance < image.width) {
-            this.createExplosion(tank.x, tank.y);
-            this.createExplosion(otherTank.x, otherTank.y);
-            this.deleteTank(tank);
-            this.deleteTank(otherTank);
-          }
-        }
-      });
-    },
+
     handleWebSocketMessage(message) {
       if (message.type === 'tankUpdate') {
         this.tanks = message.tanks;
@@ -584,6 +666,7 @@ export default {
 
 .tank-options {
   display: flex;
+  
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 10px;
